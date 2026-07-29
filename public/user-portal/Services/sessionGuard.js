@@ -1,13 +1,31 @@
 /**
  * Session Guard - Production-grade auth validation
  * Runs on every page to ensure valid session + borrower role
+ *
+ * Demo mode exception: when ?demo=true is present in the URL (or
+ * sessionStorage.demoMode === 'true' from a previous navigation), the guard
+ * is skipped entirely so the full loan-application flow can be presented
+ * without a live Supabase session.
  */
 
 import { supabase } from '/Services/supabaseClient.js';
 
+// Persist demo flag from URL into sessionStorage so it survives SPA navigation
+(function () {
+  if (new URLSearchParams(location.search).get('demo') === 'true') {
+    sessionStorage.setItem('demoMode', 'true');
+  }
+}());
+
 let guardActive = false;
 
 export async function enforceSession() {
+  // Demo mode: skip all auth checks
+  if (sessionStorage.getItem('demoMode') === 'true') {
+    console.log('🎭 Demo mode — session guard bypassed');
+    return;
+  }
+
   if (guardActive) return; // Prevent multiple simultaneous checks
   guardActive = true;
 

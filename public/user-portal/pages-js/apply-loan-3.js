@@ -5,8 +5,24 @@
 import '/user-portal/Services/sessionGuard.js'; // Production auth guard
 import '/user-portal/modules-js/loan-config.js';
 
+// ── Demo Mode ──────────────────────────────────────────────────────────────
+(function () {
+  if (new URLSearchParams(location.search).get('demo') === 'true') {
+    sessionStorage.setItem('demoMode', 'true');
+  }
+}());
+const isDemoMode = () => sessionStorage.getItem('demoMode') === 'true';
+// ──────────────────────────────────────────────────────────────────────────
+
 // Guard: Check if credit check is completed before allowing access
 async function checkCreditCheckCompleted() {
+  // Demo mode: skip all guards, just mark step as active
+  if (isDemoMode()) {
+    sessionStorage.setItem('creditCheckPassed', 'true');
+    console.log('🎭 Demo mode — credit check guard bypassed');
+    return;
+  }
+
   try {
     const { supabase } = await import('/Services/supabaseClient.js');
     const { data: { session } } = await supabase.auth.getSession();

@@ -8,7 +8,7 @@ let viewState = 'login'; // Options: 'login', 'signup', 'forgot'
 let formMessage = { type: '', text: '' }; 
 let brandingTheme = null;
 
-const DEFAULT_BRAND_LOGO = 'https://placehold.co/240x80?text=Your+Logo';
+const DEFAULT_BRAND_LOGO = '/shared/algolend-logo.png';
 const DEFAULT_AUTH_WALLPAPER = 'https://static.wixstatic.com/media/f82622_a05fcfc8600d48818feb2feeef4796fa~mv2.png';
 const DEFAULT_AUTH_OVERLAY_COLOR = DEFAULT_SYSTEM_SETTINGS.auth_overlay_color || '#212121ff';
 const DEFAULT_AUTH_OVERLAY_ENABLED = DEFAULT_SYSTEM_SETTINGS.auth_overlay_enabled !== false;

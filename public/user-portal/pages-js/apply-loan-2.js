@@ -1,9 +1,18 @@
 import '/user-portal/Services/sessionGuard.js'; // Production auth guard
 
+// ── Demo Mode ──────────────────────────────────────────────────────────────
+(function () {
+  if (new URLSearchParams(location.search).get('demo') === 'true') {
+    sessionStorage.setItem('demoMode', 'true');
+  }
+}());
+const isDemoMode = () => sessionStorage.getItem('demoMode') === 'true';
+// ──────────────────────────────────────────────────────────────────────────
+
 // Navigation function for step buttons
 window.goToStep = function(step) {
-  // Guard: Cannot go to step 3 without completing credit check
-  if (step >= 3) {
+  // Guard: Cannot go to step 3 without completing credit check (skipped in demo mode)
+  if (step >= 3 && !isDemoMode()) {
     const creditCheckPassed = sessionStorage.getItem('creditCheckPassed');
     if (creditCheckPassed !== 'true') {
       if (typeof window.showToast === 'function') {
@@ -39,6 +48,33 @@ window.goToStep = function(step) {
 
 // Check existing credit check on page load
 async function checkCreditCheckStatus() {
+  // Demo mode: auto-pass credit check and show Next button immediately
+  if (isDemoMode()) {
+    sessionStorage.setItem('creditCheckPassed', 'true');
+    const circleBtn = document.getElementById('start-credit-check-btn');
+    if (circleBtn) {
+      circleBtn.classList.remove('is-loading');
+      circleBtn.classList.add('is-done');
+      circleBtn.style.animation = 'none';
+      const label = circleBtn.querySelector('.scc-label');
+      const spinner = circleBtn.querySelector('.scc-spinner');
+      if (spinner) spinner.style.display = 'none';
+      if (label) label.innerHTML = 'Next&nbsp;<i class="fas fa-arrow-right"></i>';
+      circleBtn.disabled = false;
+      circleBtn.onclick = () => {
+        if (typeof loadPage === 'function') {
+          loadPage('apply-loan-3');
+        } else {
+          window.location.href = '/user-portal/?page=apply-loan-3';
+        }
+      };
+    }
+    const step2 = document.querySelector('.step.active');
+    if (step2) step2.classList.add('completed');
+    console.log('🎭 Demo mode — credit check auto-passed');
+    return;
+  }
+
   try {
     const { supabase } = await import('/Services/supabaseClient.js');
     const { data: { session } } = await supabase.auth.getSession();

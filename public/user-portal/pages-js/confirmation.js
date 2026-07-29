@@ -1,5 +1,14 @@
 import '/user-portal/Services/sessionGuard.js'; // Production auth guard
 
+// ── Demo Mode ──────────────────────────────────────────────────────────────
+(function () {
+  if (new URLSearchParams(location.search).get('demo') === 'true') {
+    sessionStorage.setItem('demoMode', 'true');
+  }
+}());
+const isDemoMode = () => sessionStorage.getItem('demoMode') === 'true';
+// ──────────────────────────────────────────────────────────────────────────
+
 const PENDING_LOAN_KEY = 'pendingLoanConfig';
 const SAVED_ACCOUNTS_KEY = 'savedBankAccounts';
 
@@ -752,8 +761,30 @@ function bindCancelButton() {
 window.loadBankingFormModule = loadBankingFormModule;
 window.closeBankingModal = closeBankingModal;
 
+function injectDemoLoanConfig() {
+  // Pre-fill a realistic demo loan config so the confirmation page renders properly
+  const demo = {
+    amount: 5000,
+    period: 3,
+    interestRate: 0.05,
+    startDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    isFirstLoanOfYear: true,
+    loanHistoryCount: 0,
+    signature: 'demo-signature',
+    summary: null // ensureLoanSummary will compute this
+  };
+  sessionStorage.setItem(PENDING_LOAN_KEY, JSON.stringify(demo));
+  console.log('🎭 Demo mode — demo loan config injected');
+}
+
 async function initConfirmationPage() {
   ensureGoToStep();
+
+  // Demo mode: inject a fake loan config if none exists
+  if (isDemoMode() && !sessionStorage.getItem(PENDING_LOAN_KEY)) {
+    injectDemoLoanConfig();
+  }
+
   pendingLoanConfig = readPendingLoanConfig();
   
   // Check if application was already submitted in this session

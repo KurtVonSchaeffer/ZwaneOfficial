@@ -1,5 +1,18 @@
 import '/user-portal/Services/sessionGuard.js'; // Production auth guard
 
+// ── Demo Mode ──────────────────────────────────────────────────────────────
+// Activate by visiting any page with ?demo=true in the URL, or by setting
+//   sessionStorage.setItem('demoMode', 'true')
+// in the browser console.  Demo mode skips all real data requirements so the
+// full 4-step loan-application flow can be presented without live integrations.
+(function () {
+  if (new URLSearchParams(location.search).get('demo') === 'true') {
+    sessionStorage.setItem('demoMode', 'true');
+  }
+}());
+const isDemoMode = () => sessionStorage.getItem('demoMode') === 'true';
+// ──────────────────────────────────────────────────────────────────────────
+
 window.consentGiven = false;
 
 const REQUIRED_DOCUMENTS = ['tillslip', 'bankstatement'];
@@ -443,6 +456,18 @@ function showMinimalNotice(title, message) {
 
 // Navigation function for step buttons
 window.goToStep = function(step) {
+  // Demo mode: skip all document/consent/KYC guards
+  if (isDemoMode()) {
+    const pages = { 1: 'apply-loan', 2: 'apply-loan-2', 3: 'apply-loan-3', 4: 'confirmation' };
+    if (typeof loadPage === 'function') {
+      loadPage(pages[step]);
+    } else {
+      const staticPages = { 1: 'apply-loan.html', 2: 'apply-loan-2.html', 3: 'apply-loan-3.html', 4: 'confirmation.html' };
+      window.location.href = staticPages[step];
+    }
+    return;
+  }
+
   // Guard: Cannot proceed to step 2+ without consent and all documents
   if (step >= 2) {
     if (!window.consentGiven) {
@@ -1273,7 +1298,46 @@ async function ensureDeclarationsKnown() {
 
 // ═══════════════════════════════════════════════════════════
 
+function bootDemoApplyLoanPage() {
+  // Mark all documents and KYC as complete, skip declarations popup
+  declarationsCompleted = true;
+  window.consentGiven = true;
+  documentState.tillslip = 'complete';
+  documentState.bankstatement = 'complete';
+  documentState.kyc = 'complete';
+
+  // Update consent button UI
+  const consentBtn = document.getElementById('consentBtn');
+  const consentIcon = consentBtn?.querySelector('i');
+  const documentList = document.getElementById('documentList');
+  if (consentBtn) consentBtn.classList.add('active');
+  if (consentIcon) { consentIcon.classList.remove('fa-square'); consentIcon.classList.add('fa-check-square'); }
+  if (documentList) documentList.classList.remove('hidden-consent');
+
+  // Cache element refs then force all states to complete
+  cacheElementReferences();
+  updateDocumentButtonState('tillslip', 'complete');
+  updateDocumentButtonState('bankstatement', 'complete');
+
+  // KYC button
+  const kycBtn = document.getElementById('kycBtn');
+  const kycStatus = document.getElementById('kycBtnStatus');
+  if (kycBtn) { kycBtn.disabled = true; kycBtn.classList.add('completed'); kycBtn.setAttribute('aria-disabled', 'true'); }
+  if (kycStatus) { kycStatus.className = 'document-status ready'; kycStatus.textContent = 'Verified'; }
+
+  renderModuleStatus();
+  updateNextButtonState();
+  console.log('🎭 Demo mode — step 1 pre-completed');
+}
+
 function bootApplyLoanPage() {
+  if (isDemoMode()) {
+    // In demo mode run the lightweight demo setup; still init the popup handlers
+    // so clicking the consent button doesn't break, but skip all network calls.
+    initDeclarationsPopup();
+    bootDemoApplyLoanPage();
+    return;
+  }
   // Check if declarations are already completed
   checkDeclarationsStatus();
   // Set up popup interactions
@@ -1295,12 +1359,17 @@ window.addEventListener('pageLoaded', (event) => {
   const pageName = event?.detail?.pageName;
   if (pageName === APPLY_LOAN_PAGE) {
     resetDocumentStateFlags();
-    checkDeclarationsStatus();
-    initDeclarationsPopup();
-    initDocumentChecklist();
-    initKycButton().catch(err => {
-      console.error('Failed to initialize KYC button after SPA navigation:', err);
-    });
+    if (isDemoMode()) {
+      initDeclarationsPopup();
+      bootDemoApplyLoanPage();
+    } else {
+      checkDeclarationsStatus();
+      initDeclarationsPopup();
+      initDocumentChecklist();
+      initKycButton().catch(err => {
+        console.error('Failed to initialize KYC button after SPA navigation:', err);
+      });
+    }
   } else {
     detachDocumentUploadedListener();
     // Clean up KYC polling when leaving the page
